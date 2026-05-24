@@ -40,19 +40,19 @@
 
 **步骤**
 
-- [ ] 在 `/home/xms/projects/rag/douluo/` 下 `uv init` 建独立项目
-- [ ] `uv add langchain langchain-community langchain-ollama sentence-transformers faiss-cpu`
-- [ ] `ollama pull qwen3:8b` 并 `ollama run qwen3:8b` 验证能对话
-- [ ] 把 `《斗罗大陆》_qinkan.net.txt` 编码统一成 UTF-8
-- [ ] 清洗:删除盗版水印、"本章未完点击下一页"等噪声行
-- [ ] 按章节切分到 `corpus/douluo/ch001.txt`...,**只抽前 5-10 章先用**(全本迭代太慢)
-- [ ] 建 `golden_questions.json`,写 20-30 个问题,五类各占一些:
+- [x] 在 `/home/xms/projects/rag/douluo/` 下 `uv init` 建独立项目
+- [x] `uv add langchain langchain-community langchain-ollama sentence-transformers faiss-cpu`  *(实际换成 langchain-openai + openai,通过 WSL2 调 Windows 端 ollama)*
+- [x] `ollama pull qwen3:8b` 并 `ollama run qwen3:8b` 验证能对话
+- [x] 把 `《斗罗大陆》_qinkan.net.txt` 编码统一成 UTF-8  *(原 gb18030,prepare_corpus.py 转码)*
+- [x] 清洗:删除盗版水印、"本章未完点击下一页"等噪声行
+- [x] 按章节切分到 `corpus/douluo/ch001.txt`...,**只抽前 5-10 章先用**(全本迭代太慢)  *(取前 10 章:引子 + 第一~第九章)*
+- [x] 建 `golden_questions.json`,写 20-30 个问题,五类各占一些:  *(30 题,五类各 6)*
   - 事实型:"唐三的第一武魂是什么"(蓝银草)
   - 关系型:"小舞和唐三是什么关系"
   - 跨章节型:"唐三获得了哪些魂环"
   - 模糊型:"海神九考都有哪些"
   - 陷阱题(原文没有):"唐三在霍格沃茨学了什么"——测 hallucination
-- [ ] 每题手工标注期望答案(JSON 里加 `expected` 字段)
+- [x] 每题手工标注期望答案(JSON 里加 `expected` 字段)
 
 **验收**:能 `cat golden_questions.json | jq length` 输出 ≥ 20,每题有 `query / expected / type`。
 
@@ -77,11 +77,11 @@ txt → RecursiveCharacterTextSplitter (chunk_size=500, overlap=50)
 
 **步骤**
 
-- [ ] `uv add` 还没装的依赖
-- [ ] 写 `naive_rag.py`:CLI 接收 `--query` 参数,跑完整流水线返回答案
-- [ ] 跑 20 个金标问题,把结果写到 `runs/a1.jsonl`
-- [ ] 手工标注每题:命中 / 部分命中 / 没命中 / hallucinate
-- [ ] 在 `report.md` 起一张表(后面 A2-A5 同列累加)
+- [x] `uv add` 还没装的依赖  *(langchain-text-splitters,langchain 1.x 已传递依赖)*
+- [x] 写 `naive_rag.py`:CLI 接收 `--query` 参数,跑完整流水线返回答案  *(同时支持 `--eval` 批量模式)*
+- [x] 跑 20 个金标问题,把结果写到 `runs/a1.jsonl`  *(实际跑全部 30 题)*
+- [x] 手工标注每题:命中 / 部分命中 / 没命中 / hallucinate  *(15 hit / 4 partial / 10 miss / 1 hallucinate)*
+- [x] 在 `report.md` 起一张表(后面 A2-A5 同列累加)
 
 **预期会发现的问题**(记下来,后续阶段就是解决这些):
 
@@ -100,10 +100,10 @@ txt → RecursiveCharacterTextSplitter (chunk_size=500, overlap=50)
 
 **步骤**
 
-- [ ] `uv add rank-bm25`
-- [ ] 复制 `naive_rag.py` → `hybrid_rag.py`
-- [ ] 加 BM25 索引,query 时同时跑 dense top-20 和 sparse top-20
-- [ ] 实现 RRF 融合(8 行,直接抄):
+- [x] `uv add rank-bm25`  *(rank-bm25==0.2.2)*
+- [x] 复制 `naive_rag.py` → `hybrid_rag.py`
+- [x] 加 BM25 索引,query 时同时跑 dense top-20 和 sparse top-20  *(jieba 分词 + rank-bm25)*
+- [x] 实现 RRF 融合(8 行,直接抄):
 
 ```python
 def rrf(dense_ids, sparse_ids, k=60):
@@ -115,9 +115,9 @@ def rrf(dense_ids, sparse_ids, k=60):
     return sorted(scores, key=scores.get, reverse=True)
 ```
 
-- [ ] 融合后取 top-5,拼 prompt,跑 Qwen3-8B
-- [ ] 跑同一批 20 题 → `runs/a2.jsonl`
-- [ ] `report.md` 增加 A2 列,对比 A1
+- [x] 融合后取 top-5,拼 prompt,跑 Qwen3-8B  *(代码就绪,等 verbose 验收)*
+- [x] 跑同一批 30 题 → `runs/a2.jsonl`  *(总耗时 10.4 min)*
+- [x] `report.md` 增加 A2 列,对比 A1  *(19 hit + 4 partial + 6 miss + 1 hallu = 76.7%,提升 13 pp)*
 
 **核心概念**:sparse(关键词)vs dense(语义)的盲区互补。工业界几乎都跑 hybrid。"昊天锤是谁的武魂"这种专有名词类问题提升最明显。
 
@@ -143,11 +143,11 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
 
 **步骤**
 
-- [ ] 复制 `hybrid_rag.py` → `rerank_rag.py`
-- [ ] 加载 `bge-reranker-v2-m3`(CPU)
-- [ ] RRF 后取 top-30,送 reranker 重排,取 top-5
-- [ ] 跑同一批 20 题 → `runs/a3.jsonl`,**额外记录每题延迟**
-- [ ] `report.md` 增加 A3 列 + 延迟列
+- [x] 复制 `hybrid_rag.py` → `rerank_rag.py`
+- [x] 加载 `bge-reranker-v2-m3`(CPU)
+- [x] RRF 后取 top-30,送 reranker 重排,取 top-5
+- [x] 跑同一批 30 题 → `runs/a3.jsonl`,**额外记录每题延迟**  *(准答率 86.7%,24 hit + 2 partial + 3 miss + 1 hallu,平均 44.6s/题,其中 reranker 22.9s)*
+- [x] `report.md` 增加 A3 列 + 延迟列  *(核心战果:Q11 hallu→hit;反面案例:Q18 partial→hallu,候选池偏掉时 reranker "自信精排到错处")*
 
 **核心概念**:bi-encoder(粗排,每个 chunk 单独编码,快)vs cross-encoder(精排,query+chunk 一起进模型,准)。几乎所有生产 RAG 都是这个两阶段结构。
 
@@ -179,12 +179,12 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
 
 **步骤**
 
-- [ ] 写 `contextual_ingest.py`:对每个 chunk 生成 ctx_prefix,缓存到 `cache/ctx.sqlite`
-- [ ] 先只跑前 5 章,看人工抽查 10 条前缀质量是否过关
-- [ ] 质量 OK 再全量跑
-- [ ] 写 `contextual_rag.py`:加载缓存,用 `ctx_prefix + chunk` 重新建 dense 和 sparse 索引,query 流程复用 A3
-- [ ] 跑 20 题 → `runs/a4.jsonl`,重点看跨章节、需要上下文判断的问题
-- [ ] `report.md` 增加 A4 列
+- [x] 写 `contextual_ingest.py`:对每个 chunk 生成 ctx_prefix,缓存到 `cache/ctx.sqlite`  *(改用 DeepSeek-V4-Flash + 隐式缓存,不用本地 LLM —— 185 chunk 5.3 分钟,¥0.25,缓存命中率 99.3%)*
+- [x] 先只跑前 5 章,看人工抽查 10 条前缀质量是否过关  *(跳过:用户选 B 速跑;ch001 前 3 条已验质量,直接全量)*
+- [x] 质量 OK 再全量跑  *(185/185 全部 prefix 生成完成,inspect 10 抽查全部合格)*
+- [x] 写 `contextual_rag.py`:加载缓存,用 `ctx_prefix + chunk` 重新建 dense 和 sparse 索引,query 流程复用 A3  *(LLM prompt 仍用原文 text,避免"自生成回声")*
+- [x] 跑 30 题 → `runs/a4.jsonl`,重点看跨章节、需要上下文判断的问题  *(RRF top-1: 69%→79.3% (+10.3 pp),核心修复 Q18 hallucinate→hit)*
+- [x] `report.md` 增加 A4 列  *(25 hit + 2 partial + 3 miss + 0 hallu,准答率 90.0%,增量全部集中在跨章节型 83→100%)*
 
 **直觉验证**:一段被切出来的对话原本只有"他举起了那把锤子",加了前缀变成"在与昊天宗的冲突中,唐三举起了那把锤子"——召回率应该有质变。
 
@@ -192,8 +192,56 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
 
 ---
 
+## A4.5 · LLM 消融实验:验证瓶颈是检索层还是生成层(0.5 天)
+
+> 目的:在做 A5 之前,先用最便宜的实验证明 "A4 的 5 道 partial/miss 是 Qwen3-8B 本地量化版的能力上限,不是检索缺陷"。如果换云端 LLM 直接 hit,A5 的设计目标要随之调整(详见下一节先决条件)。
+
+**背景**(详见 `report.md` A4 节 + 2026-05-24 对话分析):
+
+A4 实测 **Recall@5 = 96.6%**,Q9 / Q12 / Q13 / Q16 四题的正确 chunk 已经在 top-5 里,但 Qwen3-8B 本地版没合成出来:
+- **Q12** chunk 里 "唐门" 出现 ≥3 次(prefix 也写了),LLM 答 "原文未提及"
+- **Q13** top-5 完整覆盖 "圣魂村 / 天斗帝国 / 唐昊 / 转生" 全部要素,LLM 只答 "跳崖"
+- **Q16** chunk 直接写 "调查过六百四十七个武魂为蓝银草的人",LLM 抹成 "概率极低"
+- **Q9** chunk 多次出现 "七舍 / 工读生 / 舍长",LLM 答 "原文未提及"
+
+**实验设计**:只换 LLM,**复用 a4.jsonl 的 top-5 检索结果不重新检索**,确保唯一变量是生成层。
+
+**步骤**
+
+- [x] 写 `a4_swap_llm.py`:从 `runs/a4.jsonl` 读 top-5 chunks + 原 prompt,**只换 LLM 调用** 到 DeepSeek-V4-Flash(复用 `contextual_ingest.py` 的 OpenAI 兼容 client 写法,关 thinking)
+- [x] 跑全部 30 题(用户决定扩大范围)→ `runs/a4_swap.jsonl`  *(32.7s,¥0.0427,平均 1.09s/题)*
+- [x] Claude 主动判 30 题 hit / partial / miss,对照 a4 原答案  *(Qwen3-8B 25/2/3/0 vs DeepSeek 29/1/0/0,净 +5 题 -1 题)*
+- [x] `report.md` 增加 "LLM 消融" 小节,记结果 + 对 A5 设计的影响  *(主对比表加 A4.5 行,A4 节后插完整 4 小节细账)*
+
+**预算估算**:5 题 × ~3KB prompt ≈ 15K tokens,DeepSeek-V3-Flash 成本 < **¥0.01**,耗时 < 1 分钟。
+
+**预期结果分支**(决定 A5 怎么做):
+
+| 结果 | A5 含义 |
+|---|---|
+| **4 题全 hit** ← **实测落在这一支** | 瓶颈确认在 LLM。A5 主要价值从 "刷准答率" 变成 "练 LangGraph 工程模式"(Track B 主图必用),不追准答率提升 |
+| 仍有 ≥2 题 partial/miss | 部分题需要 decompose / rewrite / 多轮检索,A5 的检索反思价值得到验证,按原计划全力做 |
+| Q3 仍 miss | 评测口径问题(LLM 复述能力问题),不是 RAG 系统问题,不进 A5 范围 |
+
+**实测结果(30 题扩展版,2026-05-24)**:Q3/Q9/Q12/Q13/Q16 五题全部翻 hit,新增 Q18 hit→partial(漏门房改列食堂)。准答率 90%→100%,严格 hit-only 83.3%→96.7%。**详见 `report.md` A4.5 节 + `runs/a4_swap.jsonl`**。
+
+**追加:数据污染对照(2026-05-24)**:补做 DeepSeek 闭卷实验(`a4_closed_llm.py`,不给任何 chunk,凭训练记忆答 30 题),严格 hit-only 仅 40%,准答率 66.7%。纯 RAG 贡献 = 96.7% - 40% = **+56.7 pp**。陷阱题 Q26→"阿银"、Q28→"玉小刚" 暴露后文知识渗透,Q2/Q16/Q17/Q18/Q22/Q23 闭卷瞎编机制证明记忆不可靠。结论:**斗罗大陆是头部 IP 训练数据污染存在,但 A4.5 实验的主导结论(LLM 换大模型显著提升 RAG 命中率)成立,污染不否定核心结论**。
+
+**Track B 启示**:ASHRAE / WELL / EN PDF 这类标准文档**几乎不在 LLM 训练数据里**(版权 + 非公开),Track B 不需要做污染对照。但**Phase B 评估子图时如果用了 IEQ-Bench 上某些公开案例(论文 / FAQ),要在 eval/run.py 加 closed-book baseline 作 caveat**。
+
+**A5 设计调整结论**:
+- A5 不再追准答率,改盯三个新维度:**答案完整度**(Q13/Q14/Q15 多要素细节)、**列举覆盖度**(Q18 子查询拆解)、**延迟 / token 成本**(retry 累积)。
+- A5 节点 LLM **按节点分配混合路由**(对齐 IEQ-Ops dissertation specialist 模式):decompose / grade / generate → DeepSeek-V4-Flash(关 thinking),rewrite → 本地 Qwen3-8B。理由:rewrite 是短字符串改写,本地够用;decompose/grade/generate 是 A4.5 证明本地不可靠的三类任务。这样 A5 就是 dissertation specialist 的 1:1 原型,可直接对比"混合 vs 全云端"的成本/延迟差。
+- 检索层 Recall@5 = 96.6% 已经触顶,A5 改写 query 重检索的意义更多是练 LangGraph 工程模式,非检索增益。
+
+**产出**:`a4_swap_llm.py` + `runs/a4_swap.jsonl` + `report.md` 新增 "LLM 消融" 节。
+
+---
+
 ## A5 · Self-Reflective / Agentic RAG(2 天)
 
+> **先决条件**:完成 A4.5,根据结果调整 A5 的 KPI 重心(详见上节)。
+>
 > 目标:把 RAG 从"一次性检索"升级为"会反思的循环"。**这里第一次引入 LangGraph。**
 
 **流水线**
@@ -206,13 +254,19 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
                                     [generate]
 ```
 
-**节点职责**
+**节点职责 + LLM 分配**(混合路由,对齐 dissertation specialist)
 
-- `decompose`:LLM 判断要不要拆分。简单问题不拆,复杂问题(如"唐三与小舞感情线发展过程")拆 2-3 个子查询。
-- `retrieve`:复用 A4 的 contextual + hybrid + rerank。
-- `grade`:LLM 看 chunks,输出 `{"sufficient": bool, "reason": str}`。**prompt 要写严格**,否则 LLM 会敷衍说"够了"。
-- `rewrite`:改写 query。例:"唐三最后变成了什么" → "唐三成为海神的过程"。
-- 退出条件:`max_retries=2`,防死循环。
+| 节点 | LLM | 职责 |
+|---|---|---|
+| `decompose` | DeepSeek-V4-Flash | 判断要不要拆分。简单问题不拆,复杂问题(如"唐三与小舞感情线发展过程")拆 2-3 个子查询。 |
+| `retrieve` | 无 LLM | 复用 A4 的 contextual + hybrid + rerank。 |
+| `grade` | DeepSeek-V4-Flash | 看 chunks,输出 `{"sufficient": bool, "reason": str}`。**prompt 要写严格**,否则 LLM 会敷衍说"够了"。A4.5 已证本地 8B 会"自信地说够了"。 |
+| `rewrite` | **本地 Qwen3-8B** | 改写 query。例:"唐三最后变成了什么" → "唐三成为海神的过程"。短字符串改写,本地够用。 |
+| `generate` | DeepSeek-V4-Flash | 多轮累积 chunks → 最终答。A4.5 14pp hit-only 差距全在这一步。 |
+
+退出条件:`max_retries=2`,防死循环。
+
+**为什么混合而不全云端**:dissertation 的 specialist 内部就是这套混合路由,A5 是它的 1:1 原型。全云端虽然简单,但跳过了"两套 LLM client 共存 + 在 LangGraph 节点里切换"的工程模式,Phase B 第一次写就要在主图上调试。
 
 **核心概念**(这些就是 Phase B 主图要用的同一套东西):
 
@@ -224,13 +278,16 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
 
 **步骤**
 
-- [ ] `uv add langgraph`
-- [ ] 设计 state schema(query / sub_queries / chunks / retries / final_answer)
-- [ ] 实现四个节点 + 条件边
-- [ ] 写 `agentic_rag.py`,CLI 入口
-- [ ] 跑 20 题 → `runs/a5.jsonl`,**额外记录**:平均 retry 次数、总延迟、总 token 消耗
-- [ ] `report.md` 增加 A5 列、延迟、token 三列
-- [ ] **重点测 A1-A4 答不对的复杂问题**,看 A5 能否扳回
+- [x] `uv add langgraph`  *(douluo/ 项目,langgraph 1.2.1 + checkpoint 4.1.1 + prebuilt 1.1.0 + sdk 0.3.15)*
+- [x] 设计 state schema(query / sub_queries / chunks / retries / final_answer)  *(扩到 9 字段:`original_query` / `current_query` 分离,避免 rewrite 后丢原 query;新增 `reason`(grade→rewrite 改写线索)、`trace`(每节点 append 决策记录,verbose+jsonl 共用);`chunks` 和 `trace` 用 `Annotated[..., add]` 累加,`chunks` 去重逻辑放在 retrieve 节点内部)*
+- [x] 写两个 LLM client wrapper:一个本地 Qwen3-8B(rewrite 节点用),一个 DeepSeek-V4-Flash(其他三个节点用)  *(class + `__call__` 让节点直接 `local(prompt)` / `cloud(prompt)` 调;自动累计 calls / tokens / cost / latency,A5 评测按节点拆本地 vs 云端;连通性实测 LocalLLM 24.9s/call,CloudLLM 0.75s/call & ¥0.000034/call,**33× 速度差**)*
+- [x] 实现五个节点 + 条件边(注意 rewrite 单独走本地)  *3a: 5 个节点工厂 + 4 个 prompt 模板 mock 全过;3b: StateGraph 拼图(static edges + add_conditional_edges + MAX_RETRIES=2 强退)+ 简单题(4 节点,28.5s)和越界题(10 节点,174s,触发 2 次 rewrite)端到端 trace 验证通过*
+- [x] 写 `agentic_rag.py`,CLI 入口  *三模式:`--query "..."` 单题(stream 边跑边打节点 trace + 最终答案 + 成本统计)/ `--eval [--output]` 30 题批量(写 jsonl + 每题 flush)/ `--mock [--llm-only]` 跑 3a 验收*
+- [x] 跑 30 题 → `runs/a5.jsonl`  *耗时 28.8 min,Cloud 101 calls ¥0.0960(cache hit 32.8%),Local 11 calls 400s。retries 分布:0 retry 24 题(avg 33.9s)、1 retry 1 题(Q18)、2 retry 5 题(avg 159s,陷阱题 + Q10)。节点累计延迟:retrieve 70.5% + rewrite 23.2% 是两大头*
+- [x] `report.md` 增加 A5 列、延迟、token、混合路由成本分解  *主对比表加 hit-only 列(86.7%);新增 A5 详细节(流水线图、三方对比、A4→A5 翻盘表、4 题退 partial 的两个独立副作用机制分析、按类型/retries 细分、节点延迟成本细账、LangGraph 工程价值总结)*
+- [x] **重点测 A1-A4 答不对的复杂问题**,看 A5 能否扳回  *Q3/Q9/Q12 (A4 miss → A5 hit) + Q13/Q16 (A4 partial → A5 hit) 5 题全翻盘(跟 A4.5 完全一致,纯 LLM 升级红利);Q18 (A4.5 partial → A5 hit) 是唯一来自 decompose 拆 sub_queries 的 agentic 收益。代价:Q10/Q14/Q28/Q30 A4 hit → A5 partial(rewrite 多 chunks 或 decompose 拆解引入噪声稀释合成)*
+
+**A5 验收结论**:hit-only 86.7%,**比 A4 +3.4 pp 但比 A4.5 -10 pp**。准答率不是 A5 的 KPI(早在 A4.5 已 100%),A5 真正交付的是 LangGraph 工程模式(StateGraph + 条件边 + 循环 + 强退 + 混合 LLM 路由 + trace 调试),这套结构直接接 Track B 主图。陷阱题 5/5 全拒答正确,grade 严判 + MAX_RETRIES=2 强退的护栏组合证明必要。Track B 进图前要先解决两个 A5 暴露的 agentic 坑:(1) rewrite 后只保留 top-K chunks 防稀释,(2) decompose 限制 sub_query 数量上限。
 
 **这一步你要感受到的 tradeoff**:agentic RAG 慢、贵,但能答对原来答不对的题。这种直觉是以后做技术选型的核心资产。
 
@@ -240,10 +297,10 @@ BM25 + Dense → RRF top-30 → bge-reranker-v2-m3 cross-encoder 重排 → top-
 
 ## A 阶段结束清单
 
-- [ ] 5 个可独立运行的版本(A1-A5)
-- [ ] 完整对比实验报告 `report.md`
-- [ ] 对每一层 RAG 技术"为什么要加"有亲身感受
-- [ ] 熟悉 LangGraph 的基本使用
+- [x] 5 个可独立运行的版本(A1-A5)  *naive_rag.py / hybrid_rag.py / rerank_rag.py / contextual_rag.py / agentic_rag.py,加 contextual_ingest.py / a4_swap_llm.py / a4_closed_llm.py 共 8 个入口脚本*
+- [x] 完整对比实验报告 `report.md`  *主对比表 7 行(A1-A4 / A4.5 / A4.5-closed / A5),每阶段详细节带翻盘表 + 反面案例;主对比表带 hit-only 严格口径列*
+- [ ] 对每一层 RAG 技术"为什么要加"有亲身感受  ← 这条用户自己打钩
+- [x] 熟悉 LangGraph 的基本使用  *StateGraph + TypedDict + Annotated reducer + 静态边 + 条件边 + 循环 + 强退 + 节点闭包工厂 + stream/invoke 两种执行模式*
 
 **到这里你已经具备实现 Phase A 的全部技术能力。** Track B 是把这些能力工程化落地。
 

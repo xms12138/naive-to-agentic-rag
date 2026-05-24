@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# A4 contextual prefix 缓存(本地生成,不入库)
+cache/

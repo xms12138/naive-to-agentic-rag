@@ -7,8 +7,8 @@ dist/
 wheels/
 
 # uv / venv
+# (uv.lock 要提交,锁定依赖版本保证可复现)
 .venv/
-# uv.lock 要提交(锁定依赖版本,保证可复现)
 
 # Env / secrets
 .env
@@ -25,7 +25,8 @@ wheels/
 **/data/
 **/cache/
 **/runs/
-**/corpus/        # 语料(斗罗 txt / ASHRAE PDF)体积大且涉及版权,不入库
+# 语料(斗罗 txt / ASHRAE PDF)体积大且涉及版权,不入库
+**/corpus/
 
 # 模型权重
 *.bin
@@ -35,3 +36,10 @@ wheels/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# 协作过程产物(本地保留,不入库)
+conversation-*.txt
+斗罗大陆*.txt
+
+# 独立练习/沙盒(与主项目无关)
+langgraph_demo/
